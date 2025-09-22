@@ -1,0 +1,17 @@
+dotenv
+sqlalchemy
+psycopg2-binary
+google-generativeai
+streamlit
+pandas
+ddgs
+yfinance
+ta
+python-telegram-bot==20.3
+APScheduler
+supabase
+asyncpg
+pytest 
+pytest-asyncio
+
+
