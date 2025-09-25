@@ -32,9 +32,9 @@ Built with **Python, yFinance, Gemini API, Streamlit, and Telegram Bot**, this p
   - Deployed on: [https://stock-alert-agent-by-navya.streamlit.app](https://stock-alert-agent-by-navya.streamlit.app)  
 
 - 🤖 **Telegram Bot Integration**  
-  - Query stock tickers directly from Telegram  
+  - Query stock tickers directly from Telegram https://t.me/Navyasree_proj_bot
   - Get insights on the go  
-
+  - opt-in for daily updates
 ---
 
 ---
@@ -43,7 +43,40 @@ Built with **Python, yFinance, Gemini API, Streamlit, and Telegram Bot**, this p
 
 ### 1️⃣ Clone the repo  
 ```bash
-git clone https://github.com/your-username/stock-agent.git
+git clone https://githyd.epam.com/marepalli_navyasree/stock-agent.git
 cd stock-agent
+```
+### 2️⃣ Create a virtual environment 
+```bash
+python -m venv venv
+source venv/bin/activate   # Mac/Linux
+venv\Scripts\activate      # Windows
+```
+### 3️⃣ Install dependencies 
+```bash
+pip install -r requirements.txt
+
+```
+### 4️⃣ Setup Environment Variables
+```bash
+GEMINI_API_KEY=your_api_key_here
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+
+```
+### 5️⃣ Run Streamlit App
+```bash
+streamlit run ui/streamlit_app.py
+
+```
+### 6️⃣ Run Telegram Bot (optional)
+```bash
+python app/services/telegram_service.py
+
+```
+--------
+
+crafted with ❤️ by Navyasree
 
 
