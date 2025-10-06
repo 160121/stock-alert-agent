@@ -13,10 +13,10 @@ from app.agents.fundamental_agent import FundamentalAgent
 class DecisionAgent:
     def __init__(self, ticker: str):
         self.ticker = ticker.upper()
-        self.model = GeminiClient.get_model("gemini-1.5-flash")
+        self.model = GeminiClient.get_model("gemini-2.5-flash")
 
         self.technical_agent = TechnicalAgent(ticker=self.ticker)
-        self.sentiment_agent = SentimentAgent()
+        self.sentiment_agent = SentimentAgent(symbols=[self.ticker])  # Pass symbols on init
         self.fundamental_agent = FundamentalAgent(ticker=self.ticker)
 
         self.logger = logging.getLogger(__name__)
@@ -32,7 +32,7 @@ class DecisionAgent:
         loop = asyncio.get_event_loop()
 
         tech_future = loop.run_in_executor(self.executor, self.technical_agent.run)
-        sent_future = loop.run_in_executor(self.executor, lambda: self.sentiment_agent.run([self.ticker]))
+        sent_future = loop.run_in_executor(self.executor, self.sentiment_agent.run)  # No args here
         fund_future = loop.run_in_executor(self.executor, self.fundamental_agent.run)
 
         results = await asyncio.gather(tech_future, sent_future, fund_future)
@@ -97,7 +97,6 @@ class DecisionAgent:
             ]
             news_text_block = "\n".join(news_texts) if news_texts else "- No recent news available."
 
-            # ✅ Updated Prompt
             prompt = f"""
 You are a senior financial analyst. Below are the analyses for stock {self.ticker}:
 
@@ -142,10 +141,8 @@ Respond in JSON format:
                     "reasoning": "Could not parse Gemini response"
                 }
 
-            # ✅ Score-based logic
             score_decision = self.aggregate_scores(tech_reco, overall_sentiment, fund_reco)
 
-            # ✅ Override logic — let score-based take precedence unless it's "Hold"
             final_decision = score_decision if score_decision != "Hold" else gemini_decision.get("final_decision", "Hold")
 
             self.final_decision_result = {

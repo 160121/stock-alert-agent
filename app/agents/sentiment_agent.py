@@ -1,20 +1,20 @@
+# app/agents/sentiment_agent.py
 import json
-from ddgs import DDGS  
+from typing import List, Dict, Optional
+from ddgs import DDGS
+from app.core.base_agent import BaseAgent
 from app.services.gemini_client import GeminiClient
-from app.utils.helpers import logger
-class SentimentAgent():
-    def __init__(self, max_results: int = 5, timelimit: str = "w"):
-        """
-        Args:
-            max_results (int): Max news articles to fetch per symbol.
-            timelimit (str): d = day, w = week, m = month.
-        """
+
+class SentimentAgent(BaseAgent):
+    def __init__(self, symbols: List[str], max_results: int = 5, timelimit: str = "w"):
+        super().__init__("SentimentAgent")
+        self.original_symbols = [s.strip().upper() for s in symbols]
         self.max_results = max_results
         self.timelimit = timelimit
-        self.model = GeminiClient.get_model("gemini-1.5-flash")
+        self.model = GeminiClient.get_model("gemini-2.5-flash")
 
-    def fetch_news(self, symbol: str):
-        """Fetch recent news for a given stock symbol."""
+    def fetch_news(self, symbol: str) -> List[Dict]:
+        """Fetch recent news for a given stock symbol using DuckDuckGo News."""
         try:
             with DDGS() as ddgs:
                 query = f"{symbol} stock news"
@@ -23,12 +23,14 @@ class SentimentAgent():
                     timelimit=self.timelimit,
                     max_results=self.max_results,
                 )
-                return list(results)
+                news_list = list(results)
+                self.logger.info(f"Fetched {len(news_list)} news articles for {symbol}")
+                return news_list
         except Exception as e:
-            logger.error(f"Error fetching news for {symbol}: {e}")
+            self.logger.error(f"Error fetching news for {symbol}: {e}")
             return []
 
-    def analyze_sentiment(self, articles: list):
+    def analyze_sentiment(self, articles: List[Dict]) -> Dict:
         """Analyze sentiment of news articles using Gemini."""
         if not articles:
             return {
@@ -59,21 +61,20 @@ class SentimentAgent():
             parsed = json.loads(cleaned_text)
             return parsed
         except json.JSONDecodeError as json_err:
-            logger.error(f"Error parsing Gemini response: {json_err}\nResponse text: {response.text}")
+            self.logger.error(f"Error parsing Gemini response: {json_err}\nResponse text: {response.text}")
         except Exception as e:
-            logger.error(f"Error analyzing sentiment: {e}")
+            self.logger.error(f"Error analyzing sentiment: {e}")
 
         return {
             "overall_sentiment": "Neutral",
             "news": [],
         }
 
-
-    def run(self, symbols: list):
-        """Run sentiment analysis for given stock symbols."""
+    def run(self) -> Dict[str, Dict]:
+        """Run sentiment analysis for all given stock symbols."""
         results = {}
-        for symbol in symbols:
-            logger.info(f"Fetching sentiment for {symbol}")
+        for symbol in self.original_symbols:
+            self.logger.info(f"Fetching sentiment for {symbol}")
             articles = self.fetch_news(symbol)
             sentiment = self.analyze_sentiment(articles)
             results[symbol] = sentiment
