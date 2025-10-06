@@ -4,49 +4,44 @@ import ta
 import re
 import json
 from ddgs import DDGS
-import logging
-
+from app.core.base_agent import BaseAgent
 from app.services.gemini_client import GeminiClient
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-
-class TechnicalAgent:
+class TechnicalAgent(BaseAgent):
     def __init__(self, ticker: str, period: str = "6mo", interval: str = "1d"):
+        super().__init__(name=f"TechnicalAgent-{ticker.strip().upper()}")
         self.original_ticker = ticker.strip().upper()
         self.ticker = None
         self.period = period
         self.interval = interval
-        self.model = GeminiClient.get_model("gemini-1.5-flash")  
+        self.model = GeminiClient.get_model("gemini-2.5-flash")  
 
     def resolve_symbol(self):
-        # Step 1: Try direct ticker
-        logger.info(f"Trying direct ticker: {self.original_ticker}")
+        """Resolve the ticker symbol, trying direct, NSE/BSE suffixes, then DuckDuckGo search."""
+        self.logger.info(f"Trying direct ticker: {self.original_ticker}")
         try:
             df = yf.Ticker(self.original_ticker).history(period=self.period, interval=self.interval)
             if not df.empty:
                 self.ticker = self.original_ticker
-                logger.info(f"Direct ticker '{self.ticker}' works")
+                self.logger.info(f"Direct ticker '{self.ticker}' works")
                 return
         except Exception as e:
-            logger.warning(f"Direct ticker check failed for {self.original_ticker}: {e}")
+            self.logger.warning(f"Direct ticker check failed for {self.original_ticker}: {e}")
 
-        # Step 2: Try with NSE (.NS) and BSE (.BO) suffixes
         for suffix in [".NS", ".BO"]:
             candidate = f"{self.original_ticker}{suffix}"
             try:
-                logger.info(f"Trying with suffix {candidate}")
+                self.logger.info(f"Trying with suffix {candidate}")
                 df = yf.Ticker(candidate).history(period=self.period, interval=self.interval)
                 if not df.empty:
                     self.ticker = candidate
-                    logger.info(f"Resolved '{self.original_ticker}' to '{self.ticker}' via suffix check")
+                    self.logger.info(f"Resolved '{self.original_ticker}' to '{self.ticker}' via suffix check")
                     return
             except Exception as e:
-                logger.warning(f"Suffix check failed for {candidate}: {e}")
+                self.logger.warning(f"Suffix check failed for {candidate}: {e}")
 
-        # Step 3: DuckDuckGo search fallback
-        logger.info(f"Direct ticker & suffixes failed, searching DuckDuckGo for symbol of '{self.original_ticker}'")
+        self.logger.info(f"Direct ticker & suffixes failed, searching DuckDuckGo for symbol of '{self.original_ticker}'")
         query = f"{self.original_ticker} stock ticker yahoo finance"
         try:
             with DDGS() as ddgs:
@@ -59,34 +54,35 @@ class TechnicalAgent:
                         df_check = yf.Ticker(found_symbol).history(period=self.period, interval=self.interval)
                         if not df_check.empty:
                             self.ticker = found_symbol
-                            logger.info(f"Resolved '{self.original_ticker}' to '{self.ticker}' via DuckDuckGo")
+                            self.logger.info(f"Resolved '{self.original_ticker}' to '{self.ticker}' via DuckDuckGo")
                             return
         except Exception as e:
-            logger.error(f"Error searching symbol on DuckDuckGo: {e}")
+            self.logger.error(f"Error searching symbol on DuckDuckGo: {e}")
 
-        # If everything fails
-        logger.error(f"Could not resolve ticker symbol for {self.original_ticker}")
+        self.logger.error(f"Could not resolve ticker symbol for {self.original_ticker}")
         self.ticker = None
 
-
     def fetch_data(self):
+        """Fetch historical price data using resolved ticker symbol."""
         if not self.ticker:
             self.resolve_symbol()
         if not self.ticker:
-            logger.error(f"No valid ticker symbol found for {self.original_ticker}")
+            self.logger.error(f"No valid ticker symbol found for {self.original_ticker}")
             return None
+
         try:
             df = yf.Ticker(self.ticker).history(period=self.period, interval=self.interval)
             if df.empty:
-                logger.error(f"No data found for ticker {self.ticker}")
+                self.logger.error(f"No data found for ticker {self.ticker}")
                 return None
-            logger.info(f"Fetched data for ticker {self.ticker}")
+            self.logger.info(f"Fetched data for ticker {self.ticker}")
             return df
         except Exception as e:
-            logger.error(f"Error fetching data for {self.ticker}: {e}")
+            self.logger.error(f"Error fetching data for {self.ticker}: {e}")
             return None
 
     def compute_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Calculate popular technical indicators on the price data."""
         try:
             df['SMA_50'] = ta.trend.sma_indicator(df['Close'], window=50)
             df['EMA_20'] = ta.trend.ema_indicator(df['Close'], window=20)
@@ -102,10 +98,11 @@ class TechnicalAgent:
             df['VMA_20'] = df['Volume'].rolling(window=20).mean()
             return df
         except Exception as e:
-            logger.error(f"Error computing technical indicators: {e}")
+            self.logger.error(f"Error computing technical indicators: {e}")
             return df
 
     def generate_summary_text(self, df: pd.DataFrame) -> str:
+        """Generate a concise text summary of recent technical indicators."""
         last_rows = df.tail(5)
         lines = [f"Technical indicators for {self.ticker} over last 5 days:\n"]
         for index, row in last_rows.iterrows():
@@ -136,7 +133,6 @@ class TechnicalAgent:
             response = self.model.generate_content(prompt)
             text = response.text.strip()
 
-            # Clean code blocks if present
             if text.startswith("```json"):
                 text = text.removeprefix("```json").strip()
             if text.endswith("```"):
@@ -145,9 +141,9 @@ class TechnicalAgent:
             parsed = json.loads(text)
             return parsed
         except json.JSONDecodeError as e:
-            logger.error(f"JSON parsing error from Gemini response: {e}\nResponse text: {response.text}")
+            self.logger.error(f"JSON parsing error from Gemini response: {e}\nResponse text: {response.text}")
         except Exception as e:
-            logger.error(f"Error getting recommendation from Gemini: {e}")
+            self.logger.error(f"Error getting recommendation from Gemini: {e}")
 
         return {
             "recommendation": "No recommendation available.",

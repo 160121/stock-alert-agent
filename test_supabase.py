@@ -33,6 +33,5 @@ if __name__ == "__main__":
     debug_symbols_from_supabase()
 
     # Test inputs you want to check
-    debug_symbols_input('["TCS"]')
-    debug_symbols_input(["TCS"])
-    debug_symbols_input('TCS')
+    debug_symbols_input('["AAPL"]')
+    debug_symbols_input(["AAPL"])

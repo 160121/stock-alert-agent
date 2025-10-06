@@ -15,8 +15,7 @@ from telegram.ext import (
 from app.utils.config import TELEGRAM_BOT_TOKEN
 from app.agents.decision_agent import DecisionAgent
 
-from app.services.supabase_client import supabase  # Your Supabase client
-
+from app.services.supabase_client import supabase
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -70,9 +69,13 @@ async def receive_symbols(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     summaries = []
     for symbol in symbols:
-        agent = DecisionAgent(symbol)
-        decision = await agent.run()
-        summaries.append(f"{symbol}: {decision.get('final_decision', 'No decision')}")
+        try:
+            agent = DecisionAgent(symbol)
+            decision = await agent.run()
+            summaries.append(f"{symbol}: {decision.get('final_decision', 'No decision')}")
+        except Exception as e:
+            logger.error(f"Error analyzing symbol {symbol}: {e}")
+            summaries.append(f"{symbol}: Error during analysis")
 
     summary_text = "\n".join(summaries)
     await update.message.reply_text(f"Portfolio summary:\n{summary_text}")
@@ -94,7 +97,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    chat_id = query.message.chat_id
+    chat_id = query.message.chat.id  # fixed from chat_id
     data = query.data
 
     if data == "subscribe_yes":
@@ -156,11 +159,18 @@ async def daily_update_callback(context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"No symbols found for chat_id={chat_id}, skipping update.")
             continue
 
+        # Normalize symbols to uppercase
+        symbols = [sym.upper() for sym in symbols]
+
         summaries = []
         for symbol in symbols:
-            agent = DecisionAgent(symbol)
-            decision = await agent.run()
-            summaries.append(f"{symbol}: {decision.get('final_decision', 'No decision')}")
+            try:
+                agent = DecisionAgent(symbol)
+                decision = await agent.run()
+                summaries.append(f"{symbol}: {decision.get('final_decision', 'No decision')}")
+            except Exception as e:
+                logger.error(f"Error during daily update for {symbol} chat_id={chat_id}: {e}")
+                summaries.append(f"{symbol}: Error")
 
         summary_text = "\n".join(summaries)
         text = f"📈 Daily Portfolio Update:\n{summary_text}\n\nSelect a stock to get detailed insights."
@@ -179,24 +189,27 @@ async def detailed_insights_handler(update: Update, context: ContextTypes.DEFAUL
     query = update.callback_query
     await query.answer()
 
-    chat_id = query.message.chat_id
+    chat_id = query.message.chat.id  # fixed from chat_id
     data = query.data
 
     if data.startswith("details_"):
-        symbol = data.replace("details_", "")
-        agent = DecisionAgent(symbol)
-        decision = await agent.run()
+        symbol = data.replace("details_", "").upper()  # uppercase for consistency
+        try:
+            agent = DecisionAgent(symbol)
+            decision = await agent.run()
 
-        tech_reco = decision.get("final_decision", "N/A")
-        reasoning = decision.get("reasoning", "No reasoning provided.")
+            final_decision = decision.get("final_decision", "N/A")
+            reasoning = decision.get("reasoning", "No reasoning provided.")
 
-        details_text = (
-            f"📊 Detailed analysis for {symbol}:\n"
-            f"Final Decision: {tech_reco}\n"
-            f"Reasoning:\n{reasoning}"
-        )
-
-        await query.edit_message_text(details_text)
+            details_text = (
+                f"📊 Detailed analysis for {symbol}:\n"
+                f"Final Decision: {final_decision}\n"
+                f"Reasoning:\n{reasoning}"
+            )
+            await query.edit_message_text(details_text)
+        except Exception as e:
+            logger.error(f"Error fetching detailed insights for {symbol}: {e}")
+            await query.edit_message_text(f"Failed to fetch detailed insights for {symbol}.")
 
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -227,9 +240,9 @@ def main():
     application.add_handler(CallbackQueryHandler(button_handler, pattern="^subscribe_"))
     application.add_handler(CallbackQueryHandler(detailed_insights_handler, pattern="^details_"))
 
-    # Schedule daily update at 11:11 AM UTC
+    # Schedule daily update at 15:30 UTC (adjust as needed)
     application.job_queue.run_daily(
-        daily_update_callback, time=time(hour=11, minute=30, second=0)
+        daily_update_callback, time=time(hour=9, minute=51, second=0)
     )
 
     application.run_polling()

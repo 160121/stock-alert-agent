@@ -1,11 +1,11 @@
-# app/core/base_agent.py
 from abc import ABC, abstractmethod
-import logging
+from app.utils.helpers import logger as app_logger
 
 class BaseAgent(ABC):
     def __init__(self, name: str):
         self.name = name
-        self.logger = logging.getLogger(name)
+        # Use a child logger to maintain hierarchy under main "stock-alerts" logger
+        self.logger = app_logger.getChild(name)
 
     @abstractmethod
     def run(self, *args, **kwargs):

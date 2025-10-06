@@ -18,7 +18,7 @@ class GeminiClient:
             logger.info("✅ Gemini API client initialized.")
 
     @staticmethod
-    def get_model(model_name="gemini-1.5-flash"):
+    def get_model(model_name="gemini-2.5-flash"):
         """Get a generative model instance."""
         GeminiClient.init()
         return genai.GenerativeModel(model_name)
