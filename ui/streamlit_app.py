@@ -78,7 +78,7 @@ def main():
     
     st.markdown("""
     <div class="main-header">
-        <h1>📈 Professional Stock Analysis Dashboard</h1>
+        <h1>📈 Stock Analysis Dashboard</h1>
         <p>Advanced AI-powered technical, fundamental, and sentiment analysis for informed investment decisions</p>
     </div>
     """, unsafe_allow_html=True)
