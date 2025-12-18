@@ -238,7 +238,7 @@ def main():
                 
                 with footer_col1:
                     if st.button("🔄 Analyze Another Stock", type="primary"):
-                        st.experimental_rerun()
+                        st.rerun()
                 
                 with footer_col2:
                     st.markdown("""
